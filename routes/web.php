@@ -6,6 +6,7 @@ use App\Http\Controllers\Student\ProfileController;
 use App\Http\Controllers\Student\ApplicationController;
 use App\Http\Controllers\Admin\DashboardController as AdminDashboardController;
 use App\Http\Controllers\Admin\ApplicationController as AdminApplicationController;
+use App\Http\Controllers\GoogleController;
 
 // ─── Public Routes ────────────────────────────────────────────
 Route::get('/', function () {
@@ -22,6 +23,11 @@ Route::get('/', function () {
 // ─── Breeze Auth Routes ───────────────────────────────────────
 require __DIR__.'/auth.php';
 
+// ─── Google OAuth Routes ──────────────────────────────────────
+Route::middleware(['auth'])->group(function () {
+    Route::get('/google/redirect', [GoogleController::class, 'redirect'])->name('google.redirect');
+    Route::get('/google/callback', [GoogleController::class, 'callback'])->name('google.callback');
+});
 
 // ─── Student Routes ───────────────────────────────────────────
 Route::middleware(['auth', 'verified', 'student'])

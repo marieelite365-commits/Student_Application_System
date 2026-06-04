@@ -9,9 +9,11 @@ use App\Services\GoogleDriveService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 
 class ApplicationController extends Controller
 {
+    use AuthorizesRequests;
     protected GoogleDriveService $driveService;
 
     public function __construct(GoogleDriveService $driveService)
@@ -98,6 +100,24 @@ class ApplicationController extends Controller
                 $filename = time() . '_' . $field . '.' . $file->getClientOriginalExtension();
                 $path     = $file->storeAs('applications/' . $application->id, $filename, 'local');
 
+                $driveFileId  = null;
+                $driveFileUrl = null;
+
+                if ($application->drive_folder_id) {
+                    try {
+                        $driveResult  = $this->driveService->uploadFile(
+                            storage_path('app/' . $path),
+                            $field . '_' . $filename,
+                            $file->getMimeType(),
+                            $application->drive_folder_id
+                        );
+                        $driveFileId  = $driveResult['file_id'];
+                        $driveFileUrl = $driveResult['file_url'];
+                    } catch (\Exception $e) {
+                        \Log::error('Drive upload failed for ' . $field . ': ' . $e->getMessage());
+                    }
+                }
+
                 ApplicationDocument::create([
                     'application_id'    => $application->id,
                     'document_type'     => $field,
@@ -106,12 +126,45 @@ class ApplicationController extends Controller
                     'file_path'         => $path,
                     'mime_type'         => $file->getMimeType(),
                     'file_size'         => $file->getSize(),
+                    'drive_file_id'     => $driveFileId,
+                    'drive_file_url'    => $driveFileUrl,
                 ]);
             }
         }
 
         // ─── Google Drive Upload (Queue mein) ─────────────
         // dispatch(new UploadApplicationToDrive($application));
+
+        // ─── Google Drive: User ka folder find ya create karo ───
+        try {
+            $userFolderName = 'Student_' . $user->id . '_' . str_replace(' ', '_', $user->name);
+            $userFolderId   = $this->driveService->findOrCreateFolder($userFolderName);
+
+            $application->update(['drive_folder_id' => $userFolderId]);
+
+            $infoText  = "APPLICATION DETAILS\n";
+            $infoText .= "===================\n";
+            $infoText .= "Application ID  : {$application->id}\n";
+            $infoText .= "Student Name    : {$user->name}\n";
+            $infoText .= "Email           : {$user->email}\n";
+            $infoText .= "Degree Program  : {$application->degree_program}\n";
+            $infoText .= "Department      : {$application->department}\n";
+            $infoText .= "Semester        : {$application->semester} {$application->admission_year}\n";
+            $infoText .= "Qualification   : {$application->last_qualification}\n";
+            $infoText .= "Institution     : {$application->last_institution}\n";
+            $infoText .= "Percentage      : {$application->last_percentage}%\n";
+            $infoText .= "Passing Year    : {$application->passing_year}\n";
+            $infoText .= "Status          : {$application->status}\n";
+            $infoText .= "Created At      : {$application->created_at}\n";
+
+            $tempPath = storage_path('app/temp_app_' . $application->id . '.txt');
+            file_put_contents($tempPath, $infoText);
+            $this->driveService->uploadFile($tempPath, 'application_info.txt', 'text/plain', $userFolderId);
+            @unlink($tempPath);
+
+        } catch (\Exception $e) {
+            \Log::error('Drive folder creation failed: ' . $e->getMessage());
+        }
 
         return redirect()->route('student.applications.show', $application->id)
             ->with('success', 'Application saved as draft!');
@@ -121,29 +174,33 @@ class ApplicationController extends Controller
 
     public function show(Application $application)
     {
-        $this->authorize('view', $application);
+    if ($application->user_id !== auth()->id()) {
+        abort(403, 'Unauthorized action.');
+    }
 
-        $application->load('documents', 'studentProfile');
+    $application->load('documents', 'studentProfile');
 
-        return view('student.applications.show', compact('application'));
+    return view('student.applications.show', compact('application'));
     }
 
     // ─── Submit Application ───────────────────────────────────
 
     public function submit(Application $application)
     {
-        $this->authorize('update', $application);
+    if ($application->user_id !== auth()->id()) {
+        abort(403, 'Unauthorized action.');
+    }
 
-        if (!$application->isDraft()) {
-            return back()->with('error', 'Application already submitted.');
-        }
+    if (!$application->isDraft()) {
+        return back()->with('error', 'Application already submitted.');
+    }
 
-        $application->update([
-            'status'       => 'submitted',
-            'submitted_at' => now(),
-        ]);
+    $application->update([
+        'status'       => 'submitted',
+        'submitted_at' => now(),
+    ]);
 
-        return redirect()->route('student.applications.show', $application->id)
-            ->with('success', 'Application submitted successfully!');
+    return redirect()->route('student.applications.show', $application->id)
+        ->with('success', 'Application submitted successfully!');
     }
 }
