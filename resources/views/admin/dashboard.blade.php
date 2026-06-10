@@ -382,10 +382,162 @@
                     <i class="fas fa-chart-bar text-green-600 text-base"></i>
                     <span class="text-[10px] text-green-700 font-semibold">Reports</span>
                 </a>
+                <a href="{{ route('admin.admin.classroom.index') }}"
+                    class="flex flex-col items-center gap-1.5 p-3 bg-teal-50 hover:bg-teal-100 rounded-lg transition text-center">
+                    <i class="fas fa-chalkboard-teacher text-teal-600 text-base"></i>
+                    <span class="text-[10px] text-teal-700 font-semibold">Classroom</span>
+                </a>
             </div>
         </div>
 
     </div>
 </div>
+    {{-- Notifications Bell + Meetings --}}
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-6">
 
+        {{-- Upcoming Meetings --}}
+        <div class="lg:col-span-2 bg-white rounded-lg shadow">
+            <div class="px-6 py-4 border-b flex justify-between items-center">
+                <h2 class="text-lg font-semibold text-gray-800">
+                    <i class="fas fa-video mr-2 text-blue-600"></i>Upcoming Meetings
+                </h2>
+                <a href="{{ route('admin.meetings.create') }}"
+                   class="bg-blue-700 hover:bg-blue-800 text-white px-4 py-2 rounded text-sm font-semibold">
+                    <i class="fas fa-plus mr-1"></i>Schedule
+                </a>
+            </div>
+            <div class="divide-y divide-gray-100">
+                @forelse($upcomingMeetings as $meeting)
+                    <div class="px-6 py-4 flex items-center justify-between">
+                        <div>
+                            <p class="font-medium text-gray-800">{{ $meeting->title }}</p>
+                            <div class="flex gap-2 mt-1 flex-wrap">
+                                <span class="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full">
+                                    {{ ucfirst($meeting->type) }}
+                                </span>
+                                <span class="text-xs text-gray-500">
+                                    <i class="fas fa-calendar mr-1"></i>
+                                    {{ $meeting->start_time->format('d M Y, h:i A') }}
+                                </span>
+                            </div>
+                        </div>
+                        <div class="flex gap-2">
+                            <a href="{{ $meeting->meet_link }}" target="_blank"
+                               class="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded text-sm">
+                                <i class="fas fa-video mr-1"></i>Join
+                            </a>
+                            <a href="{{ route('admin.meetings.show', $meeting->id) }}"
+                               class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-1 rounded text-sm">
+                                <i class="fas fa-eye mr-1"></i>View
+                            </a>
+                        </div>
+                    </div>
+                @empty
+                    <div class="px-6 py-8 text-center text-gray-400">
+                        <i class="fas fa-video text-4xl mb-3"></i>
+                        <p>No upcoming meetings.</p>
+                        <a href="{{ route('admin.meetings.create') }}"
+                           class="mt-3 inline-block bg-blue-700 text-white px-4 py-2 rounded text-sm">
+                            Schedule Now
+                        </a>
+                    </div>
+                @endforelse
+            </div>
+        </div>
+
+        {{-- Notifications --}}
+        <div class="bg-white rounded-lg shadow">
+            <div class="px-6 py-4 border-b flex justify-between items-center">
+                <h2 class="text-lg font-semibold text-gray-800">
+                    <i class="fas fa-bell mr-2 text-blue-600"></i>Notifications
+                    @if($unreadCount > 0)
+                        <span class="bg-red-500 text-white text-xs px-2 py-0.5 rounded-full ml-1">
+                            {{ $unreadCount }}
+                        </span>
+                    @endif
+                </h2>
+                @if($unreadCount > 0)
+                    <form method="POST" action="{{ route('admin.notifications.markAllRead') }}">
+                        @csrf
+                        <button class="text-xs text-blue-600 hover:underline">Mark all read</button>
+                    </form>
+                @endif
+            </div>
+            <div class="divide-y divide-gray-100 max-h-80 overflow-y-auto">
+                @forelse($notifications as $notif)
+                    <div class="px-4 py-3 {{ !$notif->is_read ? 'bg-blue-50' : '' }}">
+                        <p class="text-sm font-medium text-gray-800">{{ $notif->title }}</p>
+                        <p class="text-xs text-gray-500 mt-1">{{ $notif->message }}</p>
+                        <p class="text-xs text-gray-400 mt-1">{{ $notif->created_at->diffForHumans() }}</p>
+                    </div>
+                @empty
+                    <div class="px-4 py-6 text-center text-gray-400 text-sm">
+                        No notifications.
+                    </div>
+                @endforelse
+            </div>
+        </div>
+
+    </div>
+
+    {{-- Past Meetings with Attendance --}}
+    <div class="bg-white rounded-lg shadow mt-6">
+        <div class="px-6 py-4 border-b">
+            <h2 class="text-lg font-semibold text-gray-800">
+                <i class="fas fa-history mr-2 text-gray-500"></i>Past Meetings — Attendance
+            </h2>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+                <thead class="bg-gray-50 text-gray-600">
+                    <tr>
+                        <th class="px-4 py-3 text-left">Meeting</th>
+                        <th class="px-4 py-3 text-left">Date</th>
+                        <th class="px-4 py-3 text-left">Type</th>
+                        <th class="px-4 py-3 text-left">Attendance</th>
+                        <th class="px-4 py-3 text-left">Action</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100">
+                    @forelse($pastMeetings as $meeting)
+                        <tr class="hover:bg-gray-50">
+                            <td class="px-4 py-3 font-medium text-gray-800">{{ $meeting->title }}</td>
+                            <td class="px-4 py-3 text-gray-500">
+                                {{ $meeting->start_time->format('d M Y, h:i A') }}
+                            </td>
+                            <td class="px-4 py-3">
+                                <span class="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full">
+                                    {{ ucfirst($meeting->type) }}
+                                </span>
+                            </td>
+                            <td class="px-4 py-3">
+                                @if($meeting->for === 'all')
+                                    <span class="text-xs text-gray-400">All Students</span>
+                                @else
+                                    <span class="font-semibold text-green-600">
+                                        {{ $meeting->participants->where('attended', true)->count() }}
+                                    </span>
+                                    <span class="text-gray-400 text-xs">
+                                        / {{ $meeting->participants->count() }} attended
+                                    </span>
+                                @endif
+                            </td>
+                            <td class="px-4 py-3">
+                                <a href="{{ route('admin.meetings.show', $meeting->id) }}"
+                                   class="text-blue-600 hover:underline text-xs">
+                                    <i class="fas fa-eye mr-1"></i>View
+                                </a>
+                            </td>
+                        </tr>
+                    @empty
+                        <tr>
+                            <td colspan="5" class="px-4 py-6 text-center text-gray-400">
+                                No past meetings yet.
+                            </td>
+                        </tr>
+                    @endforelse
+                </tbody>
+            </table>
+        </div>
+    </div>
 @endsection

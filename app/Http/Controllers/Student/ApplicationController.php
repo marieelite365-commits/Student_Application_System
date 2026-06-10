@@ -87,12 +87,61 @@ class ApplicationController extends Controller
             'status'             => 'draft',
         ]);
 
+        // ─── Google Drive: User ka folder find ya create karo ───//
+        try {
+            $userFolderId = $this->driveService->getStudentFolder(
+              $user->id,
+              $user->name
+            );
+           
+
+            $application->update([
+             'drive_folder_id' => $userFolderId
+            ]);
+
+            $infoText  = "APPLICATION DETAILS\n";
+            $infoText .= "===================\n";
+            $infoText .= "Application ID  : {$application->id}\n";
+            $infoText .= "Student Name    : {$user->name}\n";
+            $infoText .= "Email           : {$user->email}\n";
+            $infoText .= "Degree Program  : {$application->degree_program}\n";
+            $infoText .= "Department      : {$application->department}\n";
+            $infoText .= "Semester        : {$application->semester} {$application->admission_year}\n";
+            $infoText .= "Qualification   : {$application->last_qualification}\n";
+            $infoText .= "Institution     : {$application->last_institution}\n";
+            $infoText .= "Percentage      : {$application->last_percentage}%\n";
+            $infoText .= "Passing Year    : {$application->passing_year}\n";
+            $infoText .= "Status          : {$application->status}\n";
+            $infoText .= "Created At      : {$application->created_at}\n";
+
+            $tempPath = Storage::disk('local')->path('temp_app_' . $application->id . '.txt');
+            file_put_contents($tempPath, $infoText);
+            $this->driveService->uploadFile($tempPath, 'application_info.txt', 'text/plain', $userFolderId);
+            @unlink($tempPath);
+
+        } 
+        
+        catch (\Exception $e) 
+        {
+             \Log::error(
+        'Drive folder creation failed: '
+        . $e->getMessage()
+          );
+        }
+
         // ─── Upload Documents ─────────────────────────────
         $documentFields = [
-            'profile_photo', 'cnic_front', 'cnic_back',
-            'matric_certificate', 'matric_marksheet',
-            'inter_certificate', 'inter_marksheet', 'domicile',
-        ];
+            'profile_photo',
+            'cnic_front',
+            'cnic_back',
+            'matric_certificate',
+            'matric_marksheet',
+            'inter_certificate',
+            'inter_marksheet',
+            'domicile',
+          ];
+
+        $application->refresh();
 
         foreach ($documentFields as $field) {
             if ($request->hasFile($field)) {
@@ -106,7 +155,7 @@ class ApplicationController extends Controller
                 if ($application->drive_folder_id) {
                     try {
                         $driveResult  = $this->driveService->uploadFile(
-                            storage_path('app/' . $path),
+                            Storage::disk('local')->path($path),
                             $field . '_' . $filename,
                             $file->getMimeType(),
                             $application->drive_folder_id
@@ -130,40 +179,6 @@ class ApplicationController extends Controller
                     'drive_file_url'    => $driveFileUrl,
                 ]);
             }
-        }
-
-        // ─── Google Drive Upload (Queue mein) ─────────────
-        // dispatch(new UploadApplicationToDrive($application));
-
-        // ─── Google Drive: User ka folder find ya create karo ───
-        try {
-            $userFolderName = 'Student_' . $user->id . '_' . str_replace(' ', '_', $user->name);
-            $userFolderId   = $this->driveService->findOrCreateFolder($userFolderName);
-
-            $application->update(['drive_folder_id' => $userFolderId]);
-
-            $infoText  = "APPLICATION DETAILS\n";
-            $infoText .= "===================\n";
-            $infoText .= "Application ID  : {$application->id}\n";
-            $infoText .= "Student Name    : {$user->name}\n";
-            $infoText .= "Email           : {$user->email}\n";
-            $infoText .= "Degree Program  : {$application->degree_program}\n";
-            $infoText .= "Department      : {$application->department}\n";
-            $infoText .= "Semester        : {$application->semester} {$application->admission_year}\n";
-            $infoText .= "Qualification   : {$application->last_qualification}\n";
-            $infoText .= "Institution     : {$application->last_institution}\n";
-            $infoText .= "Percentage      : {$application->last_percentage}%\n";
-            $infoText .= "Passing Year    : {$application->passing_year}\n";
-            $infoText .= "Status          : {$application->status}\n";
-            $infoText .= "Created At      : {$application->created_at}\n";
-
-            $tempPath = storage_path('app/temp_app_' . $application->id . '.txt');
-            file_put_contents($tempPath, $infoText);
-            $this->driveService->uploadFile($tempPath, 'application_info.txt', 'text/plain', $userFolderId);
-            @unlink($tempPath);
-
-        } catch (\Exception $e) {
-            \Log::error('Drive folder creation failed: ' . $e->getMessage());
         }
 
         return redirect()->route('student.applications.show', $application->id)

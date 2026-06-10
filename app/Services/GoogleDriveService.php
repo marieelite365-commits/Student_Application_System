@@ -157,11 +157,13 @@ class GoogleDriveService
     }
 
     // ─── Get or Create Student Folder ────────────────────────
-    public function getStudentFolder(int $userId, string $userName): string
-    {
-        $folderName = 'Student_' . $userId . '_' . str_replace(' ', '_', $userName);
-        return $this->findOrCreateFolder($folderName);
-    }
+  public function getStudentFolder(int $userId, string $userName): string
+{
+    $parentFolderId = env('GOOGLE_DRIVE_FOLDER_ID'); // LLU folder ID
+    $folderName = 'Student_' . $userId . '_' . str_replace(' ', '_', $userName);
+    return $this->findOrCreateFolder($folderName, $parentFolderId);
+}
+
     public function shareFolder(string $folderId, string $email): void
 {
     try {
