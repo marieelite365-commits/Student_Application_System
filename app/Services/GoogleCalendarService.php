@@ -197,4 +197,86 @@ class GoogleCalendarService
             return false;
         }
     }
+    // ─── Interview Event Create (Admission System) ────────────
+    public function createInterviewEvent(
+      string $studentName,
+      string $studentEmail,
+      string $rollNo,
+      string $degreeProgram,
+      string $department,
+      string $scheduledAt,
+      int    $duration,
+      string $zoomJoinUrl,
+      string $zoomMeetingId,
+      string $zoomPassword
+      ): array {
+    try {
+        $startTime = \Carbon\Carbon::parse($scheduledAt, 'Asia/Karachi');
+        $endTime   = $startTime->copy()->addMinutes($duration);
+
+        $description  = "ADMISSION INTERVIEW\n";
+        $description .= "===================\n\n";
+        $description .= "Student Name   : {$studentName}\n";
+        $description .= "Roll No        : {$rollNo}\n";
+        $description .= "Degree Program : {$degreeProgram}\n";
+        $description .= "Department     : {$department}\n\n";
+        $description .= "ZOOM DETAILS\n";
+        $description .= "------------\n";
+        $description .= "Meeting ID : {$zoomMeetingId}\n";
+        $description .= "Password   : {$zoomPassword}\n";
+        $description .= "Join URL   : {$zoomJoinUrl}\n";
+
+        // ─── Attendee (Student) Add ────────────────────────
+        $calendarService = $this->getCalendarService();
+        if (!$calendarService) {
+            return ['success' => false, 'error' => 'Calendar service unavailable — admin token missing.'];
+        }
+
+        $event = new \Google\Service\Calendar\Event([
+            'summary'     => 'Admission Interview — ' . $studentName . ' (' . $rollNo . ')',
+            'description' => $description,
+            'location'    => $zoomJoinUrl,
+            'attendees'   => [
+                ['email' => $studentEmail],
+            ],
+            'start' => new \Google\Service\Calendar\EventDateTime([
+                'dateTime' => $startTime->toRfc3339String(),
+                'timeZone' => 'Asia/Karachi',
+            ]),
+            'end' => new \Google\Service\Calendar\EventDateTime([
+                'dateTime' => $endTime->toRfc3339String(),
+                'timeZone' => 'Asia/Karachi',
+            ]),
+            'reminders' => [
+                'useDefault' => false,
+                'overrides'  => [
+                    ['method' => 'email', 'minutes' => 1440],
+                    ['method' => 'popup', 'minutes' => 30],
+                ],
+            ],
+            'status' => 'confirmed',
+        ]);
+
+        $createdEvent = $calendarService->events->insert(
+            $this->calendarId,
+            $event,
+            ['sendUpdates' => 'all']
+        );
+
+        Log::info('Calendar interview event created: ' . $createdEvent->getId());
+
+        return [
+            'success'   => true,
+            'event_id'  => $createdEvent->getId(),
+            'event_url' => $createdEvent->getHtmlLink(),
+        ];
+
+    } catch (\Exception $e) {
+        Log::error('Calendar createInterviewEvent failed: ' . $e->getMessage());
+        return [
+            'success' => false,
+            'error'   => $e->getMessage(),
+        ];
+    }
+    }
 }

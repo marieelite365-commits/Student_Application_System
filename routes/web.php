@@ -58,7 +58,7 @@ Route::middleware(['auth', 'verified', 'student'])
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
 
     // Profile
-    Route::prefix('profile')->name('profile.')->group(function () {
+        Route::prefix('profile')->name('profile.')->group(function () {
         Route::get('/', [ProfileController::class, 'show'])->name('show');
         Route::get('/create', [ProfileController::class, 'create'])->name('create');
         Route::post('/create', [ProfileController::class, 'store'])->name('store');
@@ -79,11 +79,25 @@ Route::middleware(['auth', 'verified', 'student'])
         Route::post('/{application}/update', [ApplicationController::class, 'update'])->name('update');
     });
     // Meetings
-        Route::prefix('meetings')->name('meetings.')->group(function () {
+    Route::prefix('meetings')->name('meetings.')->group(function () {
         Route::get('/', [StudentMeetingController::class, 'index'])->name('index');
         Route::get('/{meeting}', [StudentMeetingController::class, 'show'])->name('show');
         Route::get('/{meeting}/join', [StudentMeetingController::class, 'join'])->name('join');
     });
+
+    // ─── Interview Routes ─────────────────────────────────────────
+    Route::prefix('interviews')->name('interviews.')->group(function () {
+      Route::get('/', [App\Http\Controllers\Student\InterviewController::class, 'index'])->name('index');
+      Route::get('/{interview}', [App\Http\Controllers\Student\InterviewController::class, 'show'])->name('show');
+    });
+
+    // ─── Entry Test Routes ────────────────────────────────────────
+    Route::prefix('entry-tests')->name('entry_tests.')->group(function () {
+      Route::get('/{entryTest}/start', [App\Http\Controllers\Student\EntryTestController::class, 'start'])->name('start');
+      Route::post('/{entryTest}/submit', [App\Http\Controllers\Student\EntryTestController::class, 'submit'])->name('submit');
+      Route::get('/{entryTest}/result', [App\Http\Controllers\Student\EntryTestController::class, 'result'])->name('result');
+    });
+
     // Notifications
     Route::post('/notifications/mark-all-read', [AdminDashboardController::class, 'markAllRead'])
     ->name('notifications.markAllRead');
@@ -107,12 +121,32 @@ Route::middleware(['auth', 'verified', 'admin'])
     });
 
     // Students
-    Route::prefix('students')->name('students.')->group(function () {
+        Route::prefix('students')->name('students.')->group(function () {
         Route::get('/', [AdminApplicationController::class, 'students'])->name('index');
         Route::get('/{user}', [AdminApplicationController::class, 'showStudent'])->name('show');
     });
     // Meetings
     Route::resource('meetings', AdminMeetingController::class);
+
+    // ─── Interview Routes ─────────────────────────────────────────
+     Route::prefix('interviews')->name('interviews.')->group(function () {
+     Route::get('/', [App\Http\Controllers\Admin\InterviewController::class, 'index'])->name('index');
+     Route::get('/create', [App\Http\Controllers\Admin\InterviewController::class, 'create'])->name('create');
+     Route::post('/store', [App\Http\Controllers\Admin\InterviewController::class, 'store'])->name('store');
+     Route::get('/{interview}', [App\Http\Controllers\Admin\InterviewController::class, 'show'])->name('show');
+     Route::post('/{interview}/result', [App\Http\Controllers\Admin\InterviewController::class, 'markResult'])->name('result');
+     Route::post('/{interview}/cancel', [App\Http\Controllers\Admin\InterviewController::class, 'cancel'])->name('cancel');
+    });
+
+    // ─── Entry Test Routes ────────────────────────────────────────
+    Route::prefix('entry-tests')->name('entry_tests.')->group(function () {
+    Route::get('/', [App\Http\Controllers\Admin\EntryTestController::class, 'index'])->name('index');
+    Route::get('/questions', [App\Http\Controllers\Admin\EntryTestController::class, 'questions'])->name('questions');
+    Route::get('/questions/create', [App\Http\Controllers\Admin\EntryTestController::class, 'createQuestion'])->name('questions.create');
+    Route::post('/questions/store', [App\Http\Controllers\Admin\EntryTestController::class, 'storeQuestion'])->name('questions.store');
+    Route::delete('/questions/{question}', [App\Http\Controllers\Admin\EntryTestController::class, 'deleteQuestion'])->name('questions.delete');
+    Route::get('/{entryTest}', [App\Http\Controllers\Admin\EntryTestController::class, 'show'])->name('show');
+    });
     
     // ─── Google Classroom Routes ──────────────────────────────────
     Route::prefix('admin/classroom')->name('admin.classroom.')->group(function () {
@@ -135,5 +169,19 @@ Route::get('/test-drive', function () {
     );
 
     dd($folderId);
+});
+Route::get('/test-zoom', function () {
+    $zoom = app(\App\Services\ZoomService::class);
+    try {
+        $meeting = $zoom->createMeeting(
+            topic: 'Test Meeting',
+            startTime: \Carbon\Carbon::now('Asia/Karachi')->addHours(2)->format('Y-m-d\TH:i:s'),
+            duration: 30,
+            agenda: 'Test'
+        );
+        dd($meeting);
+    } catch (\Exception $e) {
+        dd($e->getMessage());
+    }
 });
 });

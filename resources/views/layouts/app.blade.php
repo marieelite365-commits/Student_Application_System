@@ -336,6 +336,24 @@
            class="sidebar-link">
             <i class="fas fa-times-circle s-icon"></i> Rejected
         </a>
+        <!-- ── INTERVIEWS & TESTS ─────────────────────── -->
+        <div class="sidebar-divider"></div>
+        <p class="sidebar-section-label">Interviews & Tests</p>
+
+        <a href="{{ route('admin.interviews.index') }}"
+          class="sidebar-link {{ request()->routeIs('admin.interviews*') ? 'active' : '' }}">
+            <i class="fas fa-user-clock s-icon"></i> Interviews
+        </a>
+
+        <a href="{{ route('admin.entry_tests.index') }}"
+         class="sidebar-link {{ request()->routeIs('admin.entry_tests*') ? 'active' : '' }}">
+         <i class="fas fa-file-alt s-icon"></i> Entry Tests
+        </a>
+
+        <a href="{{ route('admin.entry_tests.questions') }}"
+         class="sidebar-link {{ request()->routeIs('admin.entry_tests.questions*') ? 'active' : '' }}">
+         <i class="fas fa-question-circle s-icon"></i> Question Bank
+        </a>
 
         <!-- ── ACADEMICS ──────────────────────── -->
         <div class="sidebar-divider"></div>

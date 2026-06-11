@@ -27,17 +27,18 @@
     <div class="flex items-center gap-4">
 
     {{-- Notification Bell --}}
-     <div class="relative">
-        <button onclick="toggleNotifications()"
-                class="relative p-2 text-gray-500 hover:text-blue-600 focus:outline-none">
-            <i class="fas fa-bell text-2xl"></i>
-            @if($unreadCount > 0)
-                <span class="absolute top-0 right-0 bg-red-500 text-white text-xs
-                             rounded-full w-5 h-5 flex items-center justify-center">
-                    {{ $unreadCount }}
-                </span>
-            @endif
-        </button>
+    <div class="relative">
+    <button onclick="toggleNotifications()"
+            class="relative p-2 text-gray-500 hover:text-blue-600 focus:outline-none">
+        <i class="fas fa-bell text-2xl"></i>
+        @if($unreadCount > 0)
+            <span id="notif-count"
+                  class="absolute top-0 right-0 bg-red-500 text-white text-xs
+                         rounded-full w-5 h-5 flex items-center justify-center">
+                {{ $unreadCount }}
+            </span>
+        @endif
+    </button>
 
         {{-- Dropdown --}}
         <div id="notifDropdown"
@@ -142,7 +143,24 @@
             <p class="font-semibold text-lg">My Meetings</p>
             <p class="text-gray-500 text-sm">View & join meetings</p>
         </div>
-    </a>
+        </a>
+        <a href="{{ route('student.interviews.index') }}"
+          class="bg-white hover:bg-gray-50 text-gray-800 rounded-lg shadow p-5 flex items-center gap-4 transition border">
+          <i class="fas fa-user-clock text-3xl text-indigo-600"></i>
+         <div>
+           <p class="font-semibold text-lg">My Interview</p>
+           <p class="text-gray-500 text-sm">View interview schedule</p>
+         </div>
+        </a>
+        <a href="{{ $entryTest ? route('student.entry_tests.start', $entryTest->id) : '#' }}"
+            class="bg-white hover:bg-gray-50 text-gray-800 rounded-lg shadow p-5 flex items-center gap-4 transition border">
+              <i class="fas fa-file-alt text-3xl text-green-600"></i>
+           <div>
+           <p class="font-semibold text-lg">Entry Test</p>
+           <p class="text-gray-500 text-sm">Take your entry test</p>
+           </div>
+        </a>
+
     {{-- ✅ Classroom Button --}}
     <a href="#courses-section"
    class="bg-white hover:bg-gray-50 text-gray-800 rounded-lg shadow p-5 flex items-center gap-4 transition border">
@@ -362,8 +380,27 @@
     </div>
     <script>
     function toggleNotifications() {
-        const d = document.getElementById('notifDropdown');
-        d.classList.toggle('hidden');
+    const dropdown = document.getElementById('notifDropdown');
+    const badge    = document.getElementById('notif-count');
+
+    dropdown.classList.toggle('hidden');
+
+    // Jab open ho aur badge visible ho — mark all read
+    if (!dropdown.classList.contains('hidden') && badge) {
+        fetch('{{ route("student.notifications.markAllRead") }}', {
+            method: 'POST',
+            headers: {
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+                'Content-Type': 'application/json',
+            },
+        })
+        .then(() => {
+            badge.remove(); // Badge hatao
+            // Blue background bhi hatao
+            document.querySelectorAll('#notifDropdown .bg-blue-50')
+                    .forEach(el => el.classList.remove('bg-blue-50'));
+        });
+     }
     }
 
     // Bahar click karne pe close ho

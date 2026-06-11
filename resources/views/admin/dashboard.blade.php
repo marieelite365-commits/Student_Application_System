@@ -387,6 +387,16 @@
                     <i class="fas fa-chalkboard-teacher text-teal-600 text-base"></i>
                     <span class="text-[10px] text-teal-700 font-semibold">Classroom</span>
                 </a>
+                <a href="{{ route('admin.interviews.create') }}"
+                    class="flex flex-col items-center gap-1.5 p-3 bg-indigo-50 hover:bg-indigo-100 rounded-lg transition text-center">
+                    <i class="fas fa-user-clock text-indigo-600 text-base"></i>
+                    <span class="text-[10px] text-indigo-700 font-semibold">Interviews</span>
+                </a>
+                <a href="{{ route('admin.entry_tests.index') }}"
+                     class="flex flex-col items-center gap-1.5 p-3 bg-green-50 hover:bg-green-100 rounded-lg transition text-center">
+                     <i class="fas fa-file-alt text-green-600 text-base"></i>
+                     <span class="text-[10px] text-green-700 font-semibold">Entry Tests</span>
+                </a>
             </div>
         </div>
 

@@ -160,7 +160,7 @@ class GoogleDriveService
   public function getStudentFolder(int $userId, string $userName): string
 {
     $parentFolderId = env('GOOGLE_DRIVE_FOLDER_ID'); // LLU folder ID
-    $folderName = 'Student_' . $userId . '_' . str_replace(' ', '_', $userName);
+    $folderName = 'STU-' . date('Y') . '-' . str_pad($userId, 4, '0', STR_PAD_LEFT);
     return $this->findOrCreateFolder($folderName, $parentFolderId);
 }
 

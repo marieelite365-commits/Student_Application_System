@@ -64,14 +64,21 @@ class DashboardController extends Controller
           $courses = ClassroomCourse::where('status', '!=', 'archived')
         ->orWhereNull('status')
         ->latest()
-        ->get();    
+        ->get(); 
+        
+        // ─── Entry Test ───────────────────────────────────────────
+        $entryTest = \App\Models\EntryTest::where('student_id', $user->id)
+       ->latest()
+       ->first();
 
         return view('student.dashboard', compact(
             'user', 'profile', 'applications', 'stats',
             'upcomingMeetings', 'pastMeetings',
             'notifications', 'unreadCount',
-            'courses'
+            'courses', 'entryTest'
+
         ));
+        
     }
 
     public function markAllRead()

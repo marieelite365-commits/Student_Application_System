@@ -50,6 +50,11 @@ class Application extends Model
          return $this->hasMany(ApplicationDocument::class);
     }
 
+    public function interviewSchedule()
+    {
+    return $this->hasOne(InterviewSchedule::class);
+    }
+
     // ── Helper Methods ─────────────────────────────────────────
 
     public function isPending(): bool
@@ -75,14 +80,17 @@ class Application extends Model
     // Status badge color helper
     public function statusColor(): string
     {
-        return match($this->status) {
-            'draft'        => 'gray',
-            'submitted'    => 'blue',
-            'under_review' => 'yellow',
-            'approved'     => 'green',
-            'rejected'     => 'red',
-            'enrolled'     => 'purple',
-            default        => 'gray',
-        };
+    return match($this->status) {
+        'draft'                => 'gray',
+        'submitted'            => 'blue',
+        'under_review'         => 'yellow',
+        'interview_scheduled'  => 'indigo',
+        'interview_passed'     => 'teal',
+        'interview_failed'     => 'red',
+        'approved'             => 'green',
+        'rejected'             => 'red',
+        'enrolled'             => 'purple',
+        default                => 'gray',
+       };
     }
 }
