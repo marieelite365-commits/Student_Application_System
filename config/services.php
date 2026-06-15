@@ -21,6 +21,15 @@ return [
     'resend' => [
         'key' => env('RESEND_API_KEY'),
     ],
+    
+    'google_drive' => [
+    'client_id' => env('GOOGLE_DRIVE_CLIENT_ID'),
+    'client_secret' => env('GOOGLE_DRIVE_CLIENT_SECRET'),
+    'redirect' => env('GOOGLE_REDIRECT_URI'),
+    'refresh_token' => env('GOOGLE_DRIVE_REFRESH_TOKEN'),
+    'folder_id' => env('GOOGLE_DRIVE_FOLDER_ID'),
+    'parent_folder_id' => env('GOOGLE_DRIVE_PARENT_FOLDER_ID'),
+     ],
 
     'ses' => [
         'key' => env('AWS_ACCESS_KEY_ID'),

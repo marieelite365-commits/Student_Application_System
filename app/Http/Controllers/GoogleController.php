@@ -34,6 +34,10 @@ class GoogleController extends Controller
         $client->setClientSecret(env('GOOGLE_CLIENT_SECRET'));
         $client->setRedirectUri(env('GOOGLE_REDIRECT_URI'));
 
+        // 🔥 IMPORTANT FIX (missing part)
+        $client->setAccessType('offline');
+        $client->setPrompt('consent');
+
         $token = $client->fetchAccessTokenWithAuthCode($request->code);
 
         if (isset($token['error'])) {

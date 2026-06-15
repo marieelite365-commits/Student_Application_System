@@ -184,4 +184,28 @@ Route::get('/test-zoom', function () {
         dd($e->getMessage());
     }
 });
+
+Route::get('/test-google-drive-upload', function (GoogleDriveService $drive) {
+
+    try {
+
+        $result = $drive->uploadTextContent(
+            'Hello from Laravel Drive FINAL TEST',
+            'final-test.txt',
+            env('GOOGLE_DRIVE_FOLDER_ID')
+        );
+
+        dd($result);
+
+    } catch (\Exception $e) {
+
+        dd([
+            'error' => $e->getMessage(),
+            'file'  => $e->getFile(),
+            'line'  => $e->getLine(),
+        ]);
+
+    }
+
+});
 });

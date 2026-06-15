@@ -18,67 +18,84 @@ class GoogleDriveService
 
     public function __construct() {}
 
-    private function getClient(): Client
-    {
-        if (null !== $this->client) {
-            return $this->client;
-        }
+ private function getClient(): Client
+{
+    if (null !== $this->client) {
+        return $this->client;
+    }
 
-        $this->client = new Client();
+    $this->client = new Client();
 
-        // 1. Try to load Admin OAuth Token (to use Admin's personal storage quota)
-        $adminIds = User::where('role', 'admin')->pluck('id');
-        $tokenRecord = GoogleDriveToken::whereIn('user_id', $adminIds)->latest()->first();
+    // Use Admin OAuth Token (Admin personal Google Drive storage)
+    $adminIds = User::where('role', 'admin')->pluck('id');
+    $tokenRecord = GoogleDriveToken::whereIn('user_id', $adminIds)
+        ->latest()
+        ->first();
 
-        if ($tokenRecord) {
-            $this->client->setClientId(env('GOOGLE_CLIENT_ID'));
-            $this->client->setClientSecret(env('GOOGLE_CLIENT_SECRET'));
-            $this->client->setAccessType('offline');
-
-            $tokenArray = [
-                'access_token'  => $tokenRecord->access_token,
-                'refresh_token' => $tokenRecord->refresh_token,
-                'token_type'    => $tokenRecord->token_type,
-                'expires_at'    => $tokenRecord->expires_at?->timestamp,
-            ];
-
-            $this->client->setAccessToken($tokenArray);
-
-            // Refresh token if expired
-            if ($this->client->isAccessTokenExpired()) {
-                if ($tokenRecord->refresh_token) {
-                    try {
-                        $newToken = $this->client->fetchAccessTokenWithRefreshToken(
-                            $tokenRecord->refresh_token
-                        );
-                        if (!isset($newToken['error'])) {
-                            $tokenRecord->update([
-                                'access_token' => $newToken['access_token'],
-                                'expires_at'   => Carbon::now()->addSeconds($newToken['expires_in'] ?? 3600),
-                            ]);
-                            $this->client->setAccessToken($newToken);
-                        } else {
-                            Log::error('Google Drive token refresh failed: ' . $newToken['error']);
-                        }
-                    } catch (\Exception $ex) {
-                        Log::error('Google Drive token refresh exception: ' . $ex->getMessage());
-                    }
-                }
-            }
-
-            if (!$this->client->isAccessTokenExpired()) {
-                $this->client->addScope(Drive::DRIVE);
-                return $this->client;
-            }
-        }
-
-        // 2. Fallback to Service Account Credentials
-        $this->client->setAuthConfig(
-            base_path(env('GOOGLE_APPLICATION_CREDENTIALS'))
-        );
+    if ($tokenRecord) {
+        $this->client->setClientId(env('GOOGLE_CLIENT_ID'));
+        $this->client->setClientSecret(env('GOOGLE_CLIENT_SECRET'));
+        $this->client->setAccessType('offline');
         $this->client->addScope(Drive::DRIVE);
 
-        return $this->client;
+        $tokenArray = [
+            'access_token'  => $tokenRecord->access_token,
+            'refresh_token' => $tokenRecord->refresh_token,
+            'token_type'    => $tokenRecord->token_type,
+        ];
+
+        $this->client->setAccessToken([
+       'access_token'  => $tokenRecord->access_token,
+       'refresh_token' => $tokenRecord->refresh_token,
+       'token_type'    => 'Bearer',
+       'created'       => time(),
+       ]);
+
+        // Auto refresh expired access token
+        if ($this->client->isAccessTokenExpired()) {
+            if ($tokenRecord->refresh_token) {
+                try {
+                    $newToken = $this->client->fetchAccessTokenWithRefreshToken(
+                        $tokenRecord->refresh_token
+                    );
+
+                    if (!isset($newToken['error'])) {
+
+                        $tokenRecord->update([
+                            'access_token' => $newToken['access_token'],
+                            'expires_at'   => Carbon::now()->addSeconds(
+                                $newToken['expires_in'] ?? 3600
+                            ),
+                        ]);
+
+                        $this->client->setAccessToken([
+                            'access_token'  => $newToken['access_token'],
+                            'refresh_token' => $tokenRecord->refresh_token,
+                            'token_type'    => $newToken['token_type'] ?? 'Bearer',
+                        ]);
+
+                    } else {
+                        Log::error(
+                            'Google Drive token refresh failed: '
+                            . $newToken['error']
+                        );
+                    }
+
+                } catch (\Exception $ex) {
+                    Log::error(
+                        'Google Drive token refresh exception: '
+                        . $ex->getMessage()
+                    );
+                }
+            }
+        }
+
+        // Final validation
+       $this->client->addScope(Drive::DRIVE);
+       return $this->client;
+    }
+
+    throw new \Exception('Google Drive is not connected by admin.');
     }
 
     private function getDriveService(): Drive
@@ -163,7 +180,7 @@ class GoogleDriveService
         $file = $this->getDriveService()->files->create($fileMetadata, [
             'data'              => $content,
             'mimeType'          => $mimeType,
-            'uploadType'        => 'multipart',
+            'uploadType'        => 'media',
             'fields'            => 'id, webViewLink',
             'supportsAllDrives' => true,
         ]);
