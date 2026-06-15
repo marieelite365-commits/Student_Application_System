@@ -37,7 +37,8 @@ class GoogleController extends Controller
         $token = $client->fetchAccessTokenWithAuthCode($request->code);
 
         if (isset($token['error'])) {
-            return redirect()->route('student.dashboard')
+            $route = Auth::user()->isAdmin() ? 'admin.dashboard' : 'student.dashboard';
+            return redirect()->route($route)
                 ->with('error', 'Google connection failed: ' . $token['error']);
         }
 
@@ -53,7 +54,8 @@ class GoogleController extends Controller
             ]
         );
 
-        return redirect()->route('student.dashboard')
+        $route = Auth::user()->isAdmin() ? 'admin.dashboard' : 'student.dashboard';
+        return redirect()->route($route)
             ->with('success', 'Google Drive connected successfully!');
     }
     // ─── Calendar OAuth ───────────────────────────────────────────

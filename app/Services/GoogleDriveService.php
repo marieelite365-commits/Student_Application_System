@@ -7,6 +7,10 @@ use Google\Service\Drive;
 use Google\Service\Drive\DriveFile;
 use Illuminate\Support\Facades\Log;
 
+use App\Models\GoogleDriveToken;
+use App\Models\User;
+use Carbon\Carbon;
+
 class GoogleDriveService
 {
     protected ?Client $client = null;
@@ -16,13 +20,64 @@ class GoogleDriveService
 
     private function getClient(): Client
     {
-        if (null === $this->client) {
-            $this->client = new Client();
-            $this->client->setAuthConfig(
-                base_path(env('GOOGLE_APPLICATION_CREDENTIALS'))
-            );
-            $this->client->addScope(Drive::DRIVE);
+        if (null !== $this->client) {
+            return $this->client;
         }
+
+        $this->client = new Client();
+
+        // 1. Try to load Admin OAuth Token (to use Admin's personal storage quota)
+        $adminIds = User::where('role', 'admin')->pluck('id');
+        $tokenRecord = GoogleDriveToken::whereIn('user_id', $adminIds)->latest()->first();
+
+        if ($tokenRecord) {
+            $this->client->setClientId(env('GOOGLE_CLIENT_ID'));
+            $this->client->setClientSecret(env('GOOGLE_CLIENT_SECRET'));
+            $this->client->setAccessType('offline');
+
+            $tokenArray = [
+                'access_token'  => $tokenRecord->access_token,
+                'refresh_token' => $tokenRecord->refresh_token,
+                'token_type'    => $tokenRecord->token_type,
+                'expires_at'    => $tokenRecord->expires_at?->timestamp,
+            ];
+
+            $this->client->setAccessToken($tokenArray);
+
+            // Refresh token if expired
+            if ($this->client->isAccessTokenExpired()) {
+                if ($tokenRecord->refresh_token) {
+                    try {
+                        $newToken = $this->client->fetchAccessTokenWithRefreshToken(
+                            $tokenRecord->refresh_token
+                        );
+                        if (!isset($newToken['error'])) {
+                            $tokenRecord->update([
+                                'access_token' => $newToken['access_token'],
+                                'expires_at'   => Carbon::now()->addSeconds($newToken['expires_in'] ?? 3600),
+                            ]);
+                            $this->client->setAccessToken($newToken);
+                        } else {
+                            Log::error('Google Drive token refresh failed: ' . $newToken['error']);
+                        }
+                    } catch (\Exception $ex) {
+                        Log::error('Google Drive token refresh exception: ' . $ex->getMessage());
+                    }
+                }
+            }
+
+            if (!$this->client->isAccessTokenExpired()) {
+                $this->client->addScope(Drive::DRIVE);
+                return $this->client;
+            }
+        }
+
+        // 2. Fallback to Service Account Credentials
+        $this->client->setAuthConfig(
+            base_path(env('GOOGLE_APPLICATION_CREDENTIALS'))
+        );
+        $this->client->addScope(Drive::DRIVE);
+
         return $this->client;
     }
 
@@ -37,6 +92,15 @@ class GoogleDriveService
     // ─── Folder: Find ya Create ───────────────────────────────
     public function findOrCreateFolder(string $folderName, ?string $parentId = null): string
 {
+    // Extract ID if a full Google Drive URL is provided
+    if ($parentId !== null && str_contains($parentId, 'drive.google.com')) {
+        if (preg_match('/folders\/([a-zA-Z0-9-_]+)/', $parentId, $matches)) {
+            $parentId = $matches[1];
+        } elseif (preg_match('/id=([a-zA-Z0-9-_]+)/', $parentId, $matches)) {
+            $parentId = $matches[1];
+        }
+    }
+
     // Agar parent null hai toh root mein banao
     if ($parentId === null || $parentId === '') {
         $fileMetadata = new DriveFile([
@@ -157,12 +221,37 @@ class GoogleDriveService
     }
 
     // ─── Get or Create Student Folder ────────────────────────
-  public function getStudentFolder(int $userId, string $userName): string
-{
-    $parentFolderId = env('GOOGLE_DRIVE_FOLDER_ID'); // LLU folder ID
-    $folderName = 'STU-' . date('Y') . '-' . str_pad($userId, 4, '0', STR_PAD_LEFT);
-    return $this->findOrCreateFolder($folderName, $parentFolderId);
-}
+    public function getStudentFolder(int $userId, string $userName): string
+    {
+        $parentFolderId = env('GOOGLE_DRIVE_FOLDER_ID'); // LLU folder ID
+        
+        // Fetch user and force reload studentProfile to avoid cached null relation
+        $user = User::find($userId);
+        $profile = $user ? $user->studentProfile()->first() : null;
+
+        if ($profile && $profile->drive_folder_id) {
+            return $profile->drive_folder_id;
+        }
+
+        // Determine the student's ID (e.g. STU-2026-0001)
+        $studentId = null;
+        if ($profile && $profile->student_id) {
+            $studentId = $profile->student_id;
+        } else {
+            // Fallback to generating it from userId
+            $studentId = 'STU-' . date('Y') . '-' . str_pad($userId, 4, '0', STR_PAD_LEFT);
+        }
+
+        $folderName = $studentId . ' - ' . $userName;
+        $folderId = $this->findOrCreateFolder($folderName, $parentFolderId);
+
+        // Save to profile if not saved
+        if ($profile && !$profile->drive_folder_id) {
+            $profile->update(['drive_folder_id' => $folderId]);
+        }
+
+        return $folderId;
+    }
 
     public function shareFolder(string $folderId, string $email): void
 {

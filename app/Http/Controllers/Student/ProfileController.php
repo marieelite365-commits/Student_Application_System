@@ -74,13 +74,22 @@ class ProfileController extends Controller
             'province'      => $request->province,
         ]);
 
-        // ─── Google Drive: Student folder banao ──────────────
+        // ─── Google Drive: Student folder banao aur Photo upload karo ──────────────
         try {
             $drive      = new GoogleDriveService();
-            $folderId   = $drive->findOrCreateFolder($studentId);
-            $profile->update(['drive_folder_id' => $folderId]);
+            $folderId   = $drive->getStudentFolder($user->id, $user->name);
+
+            // Photo upload karo Drive pe agar upload ki gayi hai
+            if (isset($path) && $request->hasFile('profile_photo')) {
+                $drive->uploadFile(
+                    Storage::disk('public')->path($path),
+                    'profile-photo-' . $profile->student_id . '.jpg',
+                    $request->file('profile_photo')->getMimeType(),
+                    $folderId
+                );
+            }
         } catch (\Exception $e) {
-            Log::error('Drive folder create failed: ' . $e->getMessage());
+            Log::error('Drive folder creation/photo upload failed: ' . $e->getMessage());
             // Drive fail ho to bhi profile save rahegi
         }
 
@@ -132,12 +141,7 @@ class ProfileController extends Controller
 
                 // Student ka folder lo ya banao
                 $folderId = $profile->drive_folder_id
-                    ?? $drive->findOrCreateFolder($profile->student_id);
-
-                // Drive folder ID save karo agar nahi tha
-                if (!$profile->drive_folder_id) {
-                    $profile->update(['drive_folder_id' => $folderId]);
-                }
+                    ?? $drive->getStudentFolder($user->id, $user->name);
 
                 // Photo upload karo Drive pe
                 $drive->uploadFile(
